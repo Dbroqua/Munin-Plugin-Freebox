@@ -61,4 +61,5 @@ Authors
 -------
 
 Vadim Zeitlin <vz-cpan@zeitlins.org>
+
 Damien Broqua <dbroqua@mousur.org>
