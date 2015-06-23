@@ -55,4 +55,10 @@ If everything looks correctly, restart munin to start using it:
 Copyright and Licence
 ---------------------
 
-This plugin is (c) 2014 Vadim Zeitlin and distributed under the terms of GPLv2.
+This plugin is distributed under the terms of GPLv2.
+
+Authors
+-------
+
+Vadim Zeitlin <vz-cpan@zeitlins.org>
+Damien Broqua <dbroqua@mousur.org>
