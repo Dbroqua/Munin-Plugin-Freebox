@@ -16,17 +16,12 @@ add the display of Freebox data to your Munin graphs, please read on.
 Installation
 ------------
 
-This plugin relies on
-[WebService::Freebox](https://metacpan.org/pod/WebService::Freebox) Perl
-package. The simplest way to install it is to get it from CPAN, e.g.
+This plugin relies on php5 and php5-cgi.
 
-	$ cpan -i WebService::Freebox
-
-As part of its installation, `freebox-authorize` program is made available.
-You need to run it once, before using this plugin, in order to obtain the
+You need to run the authconf, before using this plugin, in order to obtain the
 authorization token needed to connect to the Freebox:
 
-	$ freebox-authorize org.munin.plugin.freebox "Munin Freebox plugin" 1.0 "Name of your server here"
+	$ munin-run freeboxv6_ authconf
 
 Keep this token secret as it is sufficient to connect to the Freebox (i.e. no
 password is required)!
@@ -37,11 +32,11 @@ Configuration
 
 Add the following section to `/etc/munin/plugin-conf.d/munin-node` file:
 
-	[freebox_*]
+	[freeboxv6_*]
 	env.app_token token-obtained-above
 
 Add a symbolic link from `/etc/munin/plugins/freebox_temp` to wherever you put
-the file `freebox_` itself, e.g. `/usr/local/share/munin/plugins`.
+the file `freeboxv6_` itself, e.g. `/usr/local/share/munin/plugins`.
 
 As with any Munin plugin, check that it works manually:
 
@@ -59,7 +54,5 @@ This plugin is distributed under the terms of GPLv2.
 
 Authors
 -------
-
-Vadim Zeitlin <vz-cpan@zeitlins.org>
 
 Damien Broqua <dbroqua@mousur.org>
