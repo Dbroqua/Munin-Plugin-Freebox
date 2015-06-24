@@ -184,10 +184,8 @@ if( !empty($api_token) ){
 						echo("graph_title Freebox Uptime\n");
 						echo("graph_vlabel Uptime in days\n");
 						echo("graph_category Freebox\n");
-						/*
 						echo("graph_args --base 1000 -l 0\n");
 						echo("graph_scale no\n");
-						*/
 						echo("sys.label Freebox\n");
 						echo("sys.draw AREA\n");
 						echo("dsl.label Internet\n");
@@ -259,28 +257,8 @@ if( !empty($api_token) ){
 			
 			if( $sc->success === true && $cs->success === true )
 			{
-				$sysUptime = explode(" ", $sc->result->uptime );
-				$upDay = 0;
-				switch( count($sysUptime) ){
-					case 2: // Last boot < 1 minut
-						$upDay = $sysUptime[0]/(24*60*60);
-					break;
-					case 4: // Last boot < 1 hour
-						$upDay = ( $sysUptime[0]*60 + $sysUptime[2] )/(24*60*60);
-					break;
-					case 6: // Last boot < 1 day
-						$upDay = ( $sysUptime[0]*60*60 + $sysUptime[2]*60 + $sysUptime[4] )/(24*60*60);
-					break;
-					case 8: // Last boot >= 1 day
-						$upDay = $sysUptime[0] + ( $sysUptime[2]*60*60 + $sysUptime[4]*60 + $sysUptime[6] )/(24*60*60);
-					break;
-				}			
-				
-				$dslUptime = $cs->result->status->uptime;
-				$dslDay = $dslUptime/(24*60*60);
-
-				echo("sys.value ".round($upDay,2)."\n");
-				echo("dsl.value ".round($dslDay,2)."\n");
+				echo("sys.value ".round( ($sc->result->uptime_val)/(24*60*60) , 2 )."\n");
+				echo("dsl.value ".round( ($cs->result->status->uptime)/(24*60*60) , 2 )."\n");
 			}
 		break;
 		case 'bandwidth':
