@@ -1,0 +1,318 @@
+#!/usr/bin/php
+<?php
+
+/*
+=head1 NAME
+
+freeboxv6 - Plugin for monitoring Freebox v6 parameters.
+
+=head1 APPLICABLE SYSTEMS
+
+Any computer on the same LAN as a Freebox v6. php5 and php5-cgi
+is required for this plugin to function.
+
+=head1 CONFIGURATION
+
+Prior to using this plugin, an authentication token allowing it connect to
+Freebox must be generated. Do this by running the following command:
+
+    munin-run freeboxv6_ authconf
+
+to obtain the app token and add a section
+
+    [freeboxv6_*]
+    env.app_token = value-of-the-token
+
+to the munin-node configuration file.
+
+=head1 USAGE
+
+This is a wildcard plugin which can be used to monitor several different
+families of Freebox parameters. Run it with C<suggest> command line argument
+to see all the possible operation modes and create a symlink called
+C<freebox_mode> to this plugin from the Munin plugins directory, e.g.
+C<freebox_temp>.
+
+=head1 AUTHOR
+
+Damien Broqua <dbroqua@mousur.org>
+
+=head1 LICENSE
+
+GPLv2
+*/
+
+class FreeboxApp {
+	/* Source : http://aissam.net/article/23-PHP--Une-librairie-pour-la-nouvelle-API-Freebox-v6-%28FreeboxOS%29 */
+    private $url;
+    private $box;
+    private $id='fr.freebox.unknown';
+    private $token=null;
+    private $sessionToken=null;
+    public $debug=false;
+    function __construct($appId, $token, $url="http://mafreebox.free.fr") {
+        $this->url=$url;
+        $this->id=$appId;
+        $this->token=$token;
+        $this->sessionToken=null;
+        $this->version();
+    }   
+    function version() {
+        $path="api_version";
+        $content=file_get_contents("$this->url/$path");
+        return $this->box=json_decode($content);
+    }
+    function call($api_url,$params=array(), $method=null) {
+        if (!$method)
+            $method=(!$params)?'GET':'POST';
+        $rurl=$this->url.$this->box->api_base_url.'v'.intval($this->box->api_version).'/'.$api_url;
+        if ($this->debug)
+            echo "\n<hr/><b>$method to $rurl (".print_r($params,true).")]</b><br>\n";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $rurl);
+        curl_setopt($ch, CURLOPT_HEADER, false);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_COOKIESESSION, true);
+        if ($method=="POST") {
+            curl_setopt($ch, CURLOPT_POST, true);
+        } elseif ($method=="DELETE") {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "DELETE");
+        } elseif ($method=="PUT") {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        }
+        if ($params)
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+        if ($this->sessionToken)
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array("X-Fbx-App-Auth: $this->sessionToken"));
+        $content = curl_exec($ch);
+        curl_close($ch);
+        $r=json_decode($content);
+        if ($this->debug)
+            echo "Result:<br/><pre>".print_r($r,true)."</pre><hr/>";
+        return $r;
+    }
+    function authorize($name, $version, $device) {
+        $r=$this->call("login/authorize", array(
+                'app_id'=>$this->id,
+                'app_name'=>$name,
+                'app_version'    => $version,
+                'device_name'    => $device
+            ));
+        if ($r->success)
+            $this->token=$r->result->app_token;
+        return $r;
+    }
+    function login() {
+        $rc=$this->call("login");
+        $c=$rc->result->challenge;
+
+        $password = hash_hmac('sha1', $c, $this->token);
+
+        $r=$this->call("login/session",
+            array('app_id' => $this->id,
+                'password' => $password));
+        if ($r->success)
+            $this->sessionToken=$r->result->session_token;
+        return $r;
+    }
+}
+
+$api_token = getenv('app_token');
+$pluginAPIname = "org.munin.plugin.freebox";
+$modes = array('temp','fan','uptime','bandwidth','freeplug');
+
+if( empty($api_token) && !(count($argv) == 2 && $argv[1] == 'authconf') ){
+	echo("Use the following command:\n\n
+    munin-run freeboxv6_ authconf\n\n
+to obtain the app token and add a section\n\n
+    [freeboxv6_*]\n
+    env.app_token = value-of-the-token\n\n
+to use this plugin.");
+	exit(-1);
+}
+
+// Authorize plugin to use Freebox API ----------------------------------------
+if(count($argv) == 2 && $argv[1] == 'authconf') {
+	$fa=new FreeboxApp( $pluginAPIname , "" );
+	$fa->debug=true;
+	$r=$fa->authorize( "Munin Freebox v6" , "0.1" , $_SERVER['FQDN'] );
+	echo("Request Id : ".$r->result->track_id."\n");
+	echo("API Token : ".$r->result->app_token."\n");
+	echo("Please push right arrow on the Freebox Server Screen and add the API Token in munin-node config file.\n");	
+    exit(0);
+}
+
+// API Token exist en config file ---------------------------------------------
+if( !empty($api_token) ){
+	$fa=new FreeboxApp( $pluginAPIname , $api_token );
+	$r=$fa->login();
+	if( !$r->success) {
+		echo("Connection FAIL\n");
+		exit(-1);
+	}	
+	
+	$mode = explode('_',$_SERVER['PHP_SELF']);
+	$plugin = $mode[count($mode)-1];
+
+	if(count($argv) == 2 ){
+		switch( $argv[1] ){
+			case 'config':
+				switch( $plugin ){
+					case 'temp':
+						echo("graph_title Freebox temperatures\n");
+						echo("graph_vlabel celcius\n");
+						echo("graph_category Freebox\n");
+						echo("cpub.label CPU (Broadcom)\n");
+						echo("cpub.warning 80\n");
+						echo("cpub.critical 90\n");
+						echo("cpum.label CPU (Marvell)\n");
+						echo("cpum.warning 80\n");
+						echo("cpum.critical 90\n");
+						echo("sw.label switch\n");
+						echo("sw.warning 80\n");
+						echo("sw.critical 90\n"); 
+						exit();
+					break;
+					case 'fan':
+						echo("graph_title Freebox fan\n");
+						echo("graph_vlabel RPM\n");
+						echo("graph_category Freebox\n");
+						echo("fan.label Fan\n");
+						exit();
+					break;
+					case 'uptime':
+						echo("graph_title Freebox Uptime\n");
+						echo("graph_vlabel Uptime in days\n");
+						echo("graph_category Freebox\n");
+						/*
+						echo("graph_args --base 1000 -l 0\n");
+						echo("graph_scale no\n");
+						*/
+						echo("sys.label Freebox\n");
+						echo("sys.draw AREA\n");
+						echo("dsl.label Internet\n");
+						echo("dsl.draw AREA\n");
+						exit();
+					break;
+					case 'bandwidth':
+						echo("graph_title Freebox Bandwidth\n");
+						echo("graph_vlabel Byte / second\n");
+						echo("graph_category Freebox\n");
+						echo("bandwidth_up.label Bandwidth up\n");
+						echo("bandwidth_down.label Bandwidth down\n");
+						echo("rate_up.label Rate up\n");
+						echo("rate_down.label Rate down\n");
+						exit();
+					break;
+					case 'freeplug':
+						echo("graph_title Connection speed\n");
+						echo("graph_vlabel Mbit / second\n");
+						echo("graph_category Freebox\n");
+						$fps = $fa->call('freeplug/');
+						
+						if( $fps->success === true && isset($fps->result) )
+						{
+							if( count($fps->result[0]->members) <= 1 ){
+								echo("freeplug_rx.label receive speed\n");
+								echo("freeplug_tx.label transmit speed\n");
+							}else{
+								/* TODO : test this loop */
+								# If we have more than one station, number them to allow
+								# distinguishing between them.
+								foreach( $fps->result[0]->members as $key => $row )
+								{
+									echo ("freeplug".$key."_rx.label receive speed for station ".$key."\n");
+									echo ("freeplug".$key."_tx.label transmit speed for station ".$key."\n");
+								}
+							}
+						}				
+					break;
+				}
+			break;
+			case 'suggest':
+				foreach( $modes as $mode ){
+					echo ("freeboxv6_$mode\n");
+				}
+			break;
+		}
+	}
+
+	switch( $plugin ){
+		case 'temp':
+			$sc=$fa->call('system/');
+			print_r($sc);
+			if( $sc->success === true ){
+				echo("cpub.value ".round($sc->result->temp_cpub,2)."\n");
+				echo("cpum.value ".round($sc->result->temp_cpum,2)."\n");
+				echo("sw.value ".round($sc->result->temp_sw,2)."\n");
+			}
+		break;
+		case 'fan':
+			$sc=$fa->call('system/');
+			if( $sc->success === true ){
+				echo("fan.value ".round($sc->result->fan_rpm,2)."\n");
+			}
+		break;
+		case 'uptime':
+			$sc=$fa->call('system/');
+			$cs=$fa->call('connection/xdsl/');
+			
+			if( $sc->success === true && $cs->success === true )
+			{
+				$sysUptime = explode(" ", $sc->result->uptime );
+				$upDay = 0;
+				switch( count($sysUptime) ){
+					case 2: // Last boot < 1 minut
+						$upDay = $sysUptime[0]/(24*60*60);
+					break;
+					case 4: // Last boot < 1 hour
+						$upDay = ( $sysUptime[0]*60 + $sysUptime[2] )/(24*60*60);
+					break;
+					case 6: // Last boot < 1 day
+						$upDay = ( $sysUptime[0]*60*60 + $sysUptime[2]*60 + $sysUptime[4] )/(24*60*60);
+					break;
+					case 8: // Last boot >= 1 day
+						$upDay = $sysUptime[0] + ( $sysUptime[2]*60*60 + $sysUptime[4]*60 + $sysUptime[6] )/(24*60*60);
+					break;
+				}			
+				
+				$dslUptime = $cs->result->status->uptime;
+				$dslDay = $dslUptime/(24*60*60);
+
+				echo("sys.value ".round($upDay,2)."\n");
+				echo("dsl.value ".round($dslDay,2)."\n");
+			}
+		break;
+		case 'bandwidth':
+			$sc=$fa->call('connection/');
+			if( $sc->success === true ){
+				echo("bandwidth_up.value ".round($sc->result->bandwidth_up/8,2)."\n");
+				echo("bandwidth_down.value ".round($sc->result->bandwidth_down/8,2)."\n");
+				echo("rate_up.value ".round($sc->result->rate_up/8,2)."\n");
+				echo("rate_down.value ".round($sc->result->rate_down/8,2)."\n");
+			}
+		break;
+		case 'freeplug':
+			$fps = $fa->call('freeplug/');
+			
+			if( $fps->success === true && isset($fps->result) )
+			{
+				if( count($fps->result[0]->members) <= 1 ){
+					echo("freeplug_rx.value ".round($fps->result[0]->members[0]->rx_rate,2)."\n");
+					echo("freeplug_tx.value ".round($fps->result[0]->members[0]->tx_rate,2)."\n");
+				}else{
+					/* TODO : test this loop */
+					# If we have more than one station, number them to allow
+					# distinguishing between them.
+					foreach( $fps->result[0]->members as $key => $row )
+					{
+						echo ("freeplug".$key."_rx.value ".round($fps->result[0]->members[$key]->rx_rate,2)."\n");
+						echo ("freeplug".$key."_tx.value ".round($fps->result[0]->members[$key]->tx_rate,2)."\n");
+					}
+				}
+			}				
+		break;
+	}
+}
+
+exit(0);
