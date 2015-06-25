@@ -214,7 +214,6 @@ if( !empty($api_token) ){
 								echo("freeplug_rx.label receive speed\n");
 								echo("freeplug_tx.label transmit speed\n");
 							}else{
-								/* TODO : test this loop */
 								# If we have more than one station, number them to allow
 								# distinguishing between them.
 								foreach( $fps->result[0]->members as $key => $row )
@@ -266,8 +265,8 @@ if( !empty($api_token) ){
 			if( $sc->success === true ){
 				echo("bandwidth_up.value ".round($sc->result->bandwidth_up/8,2)."\n");
 				echo("bandwidth_down.value ".round($sc->result->bandwidth_down/8,2)."\n");
-				echo("rate_up.value ".round($sc->result->rate_up/8,2)."\n");
-				echo("rate_down.value ".round($sc->result->rate_down/8,2)."\n");
+				echo("rate_up.value ".round($sc->result->rate_up,2)."\n");
+				echo("rate_down.value ".round($sc->result->rate_down,2)."\n");
 			}
 		break;
 		case 'freeplug':
@@ -279,7 +278,6 @@ if( !empty($api_token) ){
 					echo("freeplug_rx.value ".round($fps->result[0]->members[0]->rx_rate,2)."\n");
 					echo("freeplug_tx.value ".round($fps->result[0]->members[0]->tx_rate,2)."\n");
 				}else{
-					/* TODO : test this loop */
 					# If we have more than one station, number them to allow
 					# distinguishing between them.
 					foreach( $fps->result[0]->members as $key => $row )
