@@ -219,7 +219,7 @@ if( !empty($api_token) ){
 								$freeplug = 0;
 								foreach( $fps->result[0]->members as $key => $row )
 								{
-									if( $fps->result[0]->members[0]->net_role != 'cco' )
+									if( $fps->result[0]->members[$key]->net_role != 'cco' )
 									{
 										echo ("freeplug".$freeplug."_rx.label receive speed for station ".$freeplug."\n");
 										echo ("freeplug".$freeplug."_tx.label transmit speed for station ".$freeplug."\n");
