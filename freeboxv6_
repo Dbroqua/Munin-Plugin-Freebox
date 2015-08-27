@@ -43,7 +43,7 @@ GPLv2
 */
 
 class FreeboxApp {
-	/* Source : http://aissam.net/article/23-PHP--Une-librairie-pour-la-nouvelle-API-Freebox-v6-%28FreeboxOS%29 */
+    /* Source : http://aissam.net/article/23-PHP--Une-librairie-pour-la-nouvelle-API-Freebox-v6-%28FreeboxOS%29 */
     private $url;
     private $box;
     private $id='fr.freebox.unknown';
