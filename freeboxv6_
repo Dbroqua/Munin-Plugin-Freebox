@@ -242,7 +242,6 @@ if( !empty($api_token) ){
 	switch( $plugin ){
 		case 'temp':
 			$sc=$fa->call('system/');
-			print_r($sc);
 			if( $sc->success === true ){
 				echo("cpub.value ".round($sc->result->temp_cpub,2)."\n");
 				echo("cpum.value ".round($sc->result->temp_cpum,2)."\n");
