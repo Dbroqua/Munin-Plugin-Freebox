@@ -16,7 +16,7 @@ add the display of Freebox data to your Munin graphs, please read on.
 Installation
 ------------
 
-This plugin relies on php5 and php5-cgi.
+This plugin relies on php5-cli and php5-curl.
 
 You need to run the authconf, before using this plugin, in order to obtain the
 authorization token needed to connect to the Freebox:
